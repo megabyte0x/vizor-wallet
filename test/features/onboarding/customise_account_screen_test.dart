@@ -13,6 +13,8 @@ import 'package:zcash_wallet/src/features/onboarding/create/customise_account_sc
 import 'package:zcash_wallet/src/features/onboarding/create/onboarding_split_view.dart';
 import 'package:zcash_wallet/src/features/onboarding/shared/onboarding_flow_args.dart';
 import 'package:zcash_wallet/src/features/onboarding/shared/set_password_screen.dart';
+import 'package:zcash_wallet/src/providers/account_provider.dart';
+import 'package:zcash_wallet/src/providers/sync_provider.dart';
 
 void main() {
   setUpAll(_loadAppFonts);
@@ -29,6 +31,152 @@ void main() {
     );
   });
 
+  testWidgets('renders account customisation for derive flow', (tester) async {
+    await _setDesktopViewport(tester);
+    const args = CustomiseAccountArgs.derive(
+      deriveFromAccountUuid: 'software-account',
+    );
+
+    await tester.pumpWidget(
+      _screenHarness(
+        CustomiseAccountScreen(args: args, onFinish: (_, _) async {}),
+      ),
+    );
+
+    expect(args.isDeriveFlow, isTrue);
+    expect(args.configuresPassword, isFalse);
+    expect(args.deriveFromAccountUuid, 'software-account');
+    expect(
+      find.byKey(const ValueKey('customise_account_name_field')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('customise_account_avatar_button')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('customise_account_finish_button')),
+      findsOneWidget,
+    );
+    final backTarget = tester
+        .widget<OnboardingTrailingPane>(find.byType(OnboardingTrailingPane))
+        .backTarget;
+    expect(backTarget?.label, 'Add account');
+  });
+
+  testWidgets('derive flow back link returns to add account', (tester) async {
+    await _setDesktopViewport(tester);
+    final router = GoRouter(
+      initialLocation: '/onboarding/customise-account',
+      routes: [
+        GoRoute(
+          path: '/onboarding/customise-account',
+          builder: (_, _) => CustomiseAccountScreen(
+            args: const CustomiseAccountArgs.derive(
+              deriveFromAccountUuid: 'software-account',
+            ),
+            onFinish: (_, _) async {},
+          ),
+        ),
+        GoRoute(
+          path: '/add-account',
+          builder: (_, _) => const Text('Add account route'),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_routerHarness(router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add account route'), findsOneWidget);
+  });
+
+  testWidgets('derive flow submits only the source account uuid', (
+    tester,
+  ) async {
+    await _setDesktopViewport(tester);
+    final accountNotifier = _RecordingAccountNotifier();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => CustomiseAccountScreen(
+            args: const CustomiseAccountArgs.derive(
+              deriveFromAccountUuid: 'software-account',
+            ),
+            random: _SequenceRandom([0, 1, 2]),
+          ),
+        ),
+        GoRoute(path: '/home', builder: (_, _) => const Text('home route')),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appBootstrapProvider.overrideWithValue(AppBootstrapState.empty),
+          accountProvider.overrideWith(() => accountNotifier),
+          syncProvider.overrideWith(_NoopSyncNotifier.new),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (_, child) => AppTheme(
+            data: AppThemeData.dark,
+            child: Material(color: Colors.transparent, child: child!),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('customise_account_finish_button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(accountNotifier.derivedSourceAccountUuid, 'software-account');
+    expect(accountNotifier.createdMnemonic, isNull);
+    expect(accountNotifier.createdName, 'Windborne Wardbearer');
+    expect(accountNotifier.createdProfilePictureId, 'pfp-03');
+    expect(find.text('home route'), findsOneWidget);
+  });
+
+  for (final setupArgs in _setupArgsByFlow) {
+    testWidgets('autofocuses the account name for ${setupArgs.flow.name}', (
+      tester,
+    ) async {
+      await _setDesktopViewport(tester);
+      await tester.pumpWidget(
+        _screenHarness(
+          CustomiseAccountScreen(
+            args: CustomiseAccountArgs(setupArgs: setupArgs),
+            random: _SequenceRandom([0, 1, 2]),
+            onFinish: (_, _) async {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final field = tester.widget<TextField>(
+        find.byKey(const ValueKey('customise_account_name_field')),
+      );
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const ValueKey('customise_account_name_field')),
+          matching: find.byType(EditableText),
+        ),
+      );
+
+      expect(field.autofocus, isTrue);
+      expect(editable.focusNode.hasFocus, isTrue);
+      expect(
+        field.controller!.selection,
+        TextSelection.collapsed(offset: field.controller!.text.length),
+      );
+    });
+  }
+
   testWidgets('set password continues to customise without creating a wallet', (
     tester,
   ) async {
@@ -39,10 +187,9 @@ void main() {
       routes: [
         GoRoute(
           path: '/onboarding/set-password',
-          builder:
-              (_, _) => const SetPasswordScreen(
-                args: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
-              ),
+          builder: (_, _) => const SetPasswordScreen(
+            args: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+          ),
         ),
         GoRoute(
           path: '/onboarding/customise-account',
@@ -74,6 +221,48 @@ void main() {
     expect(routedArgs?.pendingPassword, 'Password1!');
   });
 
+  testWidgets('import password forwards its complete draft to customise', (
+    tester,
+  ) async {
+    await _setDesktopViewport(tester);
+    CustomiseAccountArgs? routedArgs;
+    const setupArgs = SetPasswordScreenArgs.importWallet(
+      mnemonic: _mnemonic,
+      bip39Passphrase: 'hidden words',
+      birthdayHeight: 2500000,
+      selectedAdditionalAccountIndices: [1, 2],
+    );
+    final router = GoRouter(
+      initialLocation: '/import/set-password',
+      routes: [
+        GoRoute(
+          path: '/import/set-password',
+          builder: (_, _) => const SetPasswordScreen(args: setupArgs),
+        ),
+        GoRoute(
+          path: '/import/customise-account',
+          builder: (_, state) {
+            routedArgs = state.extra! as CustomiseAccountArgs;
+            return const Text('Import customise destination');
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_routerHarness(router));
+    await tester.enterText(find.byType(TextField).at(0), 'Password1!');
+    await tester.enterText(find.byType(TextField).at(1), 'Password1!');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('set_password_submit_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Import customise destination'), findsOneWidget);
+    expect(routedArgs?.flow, SetPasswordFlow.importWallet);
+    expect(routedArgs?.pendingPassword, 'Password1!');
+    expect(routedArgs?.setupArgs.bip39Passphrase, 'hidden words');
+    expect(routedArgs?.setupArgs.selectedAdditionalAccountIndices, [1, 2]);
+  });
+
   testWidgets('generates its draft once and keeps it across rebuilds', (
     tester,
   ) async {
@@ -85,7 +274,9 @@ void main() {
     await tester.pumpWidget(
       _screenHarness(
         CustomiseAccountScreen(
-          args: const CustomiseAccountArgs(mnemonic: _mnemonic),
+          args: const CustomiseAccountArgs(
+            setupArgs: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+          ),
           random: random,
           onFinish: (name, profilePictureId) async {
             submittedName = name;
@@ -121,7 +312,7 @@ void main() {
       tester
           .widget<OnboardingTrailingPane>(find.byType(OnboardingTrailingPane))
           .backTarget,
-      isNull,
+      isNotNull,
     );
   });
 
@@ -131,7 +322,9 @@ void main() {
     await tester.pumpWidget(
       _screenHarness(
         CustomiseAccountScreen(
-          args: const CustomiseAccountArgs(mnemonic: _mnemonic),
+          args: const CustomiseAccountArgs(
+            setupArgs: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+          ),
           onFinish: (name, _) async => submittedName = name,
         ),
       ),
@@ -157,7 +350,9 @@ void main() {
     await tester.pumpWidget(
       _screenHarness(
         CustomiseAccountScreen(
-          args: const CustomiseAccountArgs(mnemonic: _mnemonic),
+          args: const CustomiseAccountArgs(
+            setupArgs: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+          ),
           onFinish: (_, _) async => submitCount += 1,
         ),
       ),
@@ -186,7 +381,9 @@ void main() {
     await tester.pumpWidget(
       _screenHarness(
         CustomiseAccountScreen(
-          args: const CustomiseAccountArgs(mnemonic: _mnemonic),
+          args: const CustomiseAccountArgs(
+            setupArgs: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+          ),
           onFinish: (_, profilePictureId) async {
             submittedProfilePictureId = profilePictureId;
           },
@@ -226,7 +423,7 @@ void main() {
       _screenHarness(
         CustomiseAccountScreen(
           args: const CustomiseAccountArgs(
-            mnemonic: _mnemonic,
+            setupArgs: SetPasswordScreenArgs.create(mnemonic: _mnemonic),
             pendingPassword: 'Password1!',
           ),
           onFinish: (_, _) => finish.future,
@@ -279,6 +476,46 @@ class _SequenceRandom implements Random {
   }
 }
 
+class _RecordingAccountNotifier extends AccountNotifier {
+  String? createdMnemonic;
+  String? derivedSourceAccountUuid;
+  String? createdName;
+  String? createdProfilePictureId;
+
+  @override
+  FutureOr<AccountState> build() => const AccountState();
+
+  @override
+  Future<void> createAccountFromMnemonic({
+    required String mnemonic,
+    String? name,
+    String profilePictureId = 'pfp-01',
+  }) async {
+    createdMnemonic = mnemonic;
+    createdName = name;
+    createdProfilePictureId = profilePictureId;
+  }
+
+  @override
+  Future<void> deriveAccountFromExistingSeed({
+    required String sourceAccountUuid,
+    String? name,
+    String profilePictureId = 'pfp-01',
+  }) async {
+    derivedSourceAccountUuid = sourceAccountUuid;
+    createdName = name;
+    createdProfilePictureId = profilePictureId;
+  }
+}
+
+class _NoopSyncNotifier extends SyncNotifier {
+  @override
+  Future<SyncState> build() async => SyncState();
+
+  @override
+  bool needsPauseForWalletMutation() => false;
+}
+
 AppButton _finishButton(WidgetTester tester) => tester.widget<AppButton>(
   find.byKey(const ValueKey('customise_account_finish_button')),
 );
@@ -286,10 +523,9 @@ AppButton _finishButton(WidgetTester tester) => tester.widget<AppButton>(
 Future<void> _loadAppFonts() async {
   final youngSerif = FontLoader('Young Serif')
     ..addFont(rootBundle.load('assets/fonts/YoungSerif-Regular.ttf'));
-  final geist =
-      FontLoader('Geist')
-        ..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))
-        ..addFont(rootBundle.load('assets/fonts/Geist-Medium.ttf'));
+  final geist = FontLoader('Geist')
+    ..addFont(rootBundle.load('assets/fonts/Geist-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Geist-Medium.ttf'));
   await Future.wait([youngSerif.load(), geist.load()]);
 }
 
@@ -319,11 +555,10 @@ Widget _routerHarness(GoRouter router) {
     ],
     child: MaterialApp.router(
       routerConfig: router,
-      builder:
-          (_, child) => AppTheme(
-            data: AppThemeData.dark,
-            child: Material(color: Colors.transparent, child: child!),
-          ),
+      builder: (_, child) => AppTheme(
+        data: AppThemeData.dark,
+        child: Material(color: Colors.transparent, child: child!),
+      ),
     ),
   );
 }
@@ -332,3 +567,18 @@ const _mnemonic =
     'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima '
     'mike november oscar papa quebec romeo sierra tango uniform victor whiskey '
     'xray';
+
+const _setupArgsByFlow = <SetPasswordScreenArgs>[
+  SetPasswordScreenArgs.create(mnemonic: _mnemonic),
+  SetPasswordScreenArgs.importWallet(
+    mnemonic: _mnemonic,
+    birthdayHeight: 2500000,
+  ),
+  SetPasswordScreenArgs.importKeystone(
+    name: 'Keystone account',
+    ufvk: 'uview-test',
+    seedFingerprint: [1, 2, 3, 4],
+    zip32Index: 0,
+    birthdayHeight: 2500000,
+  ),
+];

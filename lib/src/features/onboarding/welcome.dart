@@ -9,7 +9,9 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_icon.dart';
 import '../../core/widgets/app_pane_modal_overlay.dart';
 import '../../core/widgets/app_tooltip.dart';
+import '../../providers/account_provider.dart';
 import '../settings/widgets/custom_endpoint_settings_panel.dart';
+import 'shared/onboarding_flow_args.dart';
 import 'shared/onboarding_welcome_art.dart';
 
 const double _welcomeCanvasHeight = 720;
@@ -27,20 +29,26 @@ const double _welcomeLegalFooterHeight = 36;
 /// [AppLayoutMode.large] so a user who had previously toggled the window
 /// into small can still come back through onboarding.
 class WelcomeScreen extends ConsumerStatefulWidget {
-  const WelcomeScreen({super.key, this.showBackButton = false});
+  const WelcomeScreen({
+    super.key,
+    this.showBackButton = false,
+    this.showNetworkSettingsInitially = false,
+  });
 
   final bool showBackButton;
+  final bool showNetworkSettingsInitially;
 
   @override
   ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
-  bool _showEndpointSettings = false;
+  late bool _showEndpointSettings;
 
   @override
   void initState() {
     super.initState();
+    _showEndpointSettings = widget.showNetworkSettingsInitially;
     // Post-frame so the provider mutation doesn't clash with the current
     // build (Riverpod forbids state writes during build). `setMode` is
     // idempotent when the mode already matches.
@@ -134,8 +142,8 @@ class _Pane extends StatelessWidget {
                         child: _WelcomeIconButton(
                           key: ValueKey('welcome_endpoint_settings_button'),
                           icon: AppIcons.cog,
-                          tooltip: 'Endpoint settings',
-                          semanticLabel: 'Endpoint settings',
+                          tooltip: 'Network settings',
+                          semanticLabel: 'Network settings',
                           onTap: onShowEndpointSettings,
                         ),
                       ),
@@ -288,8 +296,8 @@ class _WelcomeIconButtonState extends State<_WelcomeIconButton> {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: _hovered
-                      ? colors.button.ghost.bgHover
-                      : colors.background.ground.withValues(alpha: 0),
+                      ? colors.background.neutralScrim.withValues(alpha: 0.7)
+                      : colors.background.neutralScrim,
                   shape: BoxShape.circle,
                 ),
                 child: SizedBox(
@@ -299,7 +307,7 @@ class _WelcomeIconButtonState extends State<_WelcomeIconButton> {
                     child: AppIcon(
                       widget.icon,
                       size: AppIconSize.medium,
-                      color: colors.icon.accent,
+                      color: AppIconColors.light.inverse,
                     ),
                   ),
                 ),
@@ -470,21 +478,44 @@ class _WelcomeButtonsWrap extends StatelessWidget {
   }
 }
 
-class _WalletButtonsStack extends StatelessWidget {
+class _WalletButtonsStack extends ConsumerWidget {
   const _WalletButtonsStack();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountState = ref.watch(accountProvider).value;
+    final deriveFromAccountUuid = accountState == null
+        ? null
+        : defaultDeriveSourceAccountUuid(accountState);
+
     // Both buttons carry the same minWidth so they render identical
     // widths even when their labels differ in length; Column picks up
     // the larger child's intrinsic width and applies it to both.
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (deriveFromAccountUuid != null) ...[
+          AppButton(
+            key: const ValueKey('welcome_derive_account_button'),
+            onPressed: () => context.go(
+              '/onboarding/customise-account',
+              extra: CustomiseAccountArgs.derive(
+                deriveFromAccountUuid: deriveFromAccountUuid,
+              ),
+            ),
+            variant: AppButtonVariant.primary,
+            minWidth: _welcomeActionWidth,
+            leading: const AppIcon(AppIcons.addNew),
+            child: const Text('Add account'),
+          ),
+          const SizedBox(height: AppSpacing.s),
+        ],
         AppButton(
           key: const ValueKey('welcome_create_wallet_button'),
           onPressed: () => context.go('/onboarding/intro'),
-          variant: AppButtonVariant.primary,
+          variant: deriveFromAccountUuid == null
+              ? AppButtonVariant.primary
+              : AppButtonVariant.secondary,
           minWidth: _welcomeActionWidth,
           leading: const AppIcon(AppIcons.addNew),
           child: const Text('Create a wallet'),

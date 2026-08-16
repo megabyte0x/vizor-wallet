@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/keystone.dart';
+import 'api/network_privacy.dart';
 import 'api/secret.dart';
 import 'api/simple.dart';
 import 'api/sync.dart';
@@ -15,6 +16,7 @@ import 'api/wallet.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
+import 'network_privacy.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 import 'third_party/zcash_voting/config.dart';
 import 'third_party/zcash_voting/delegate.dart';
@@ -69,6 +71,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ApiDelegationProofEvent dco_decode_api_delegation_proof_event(dynamic raw);
+
+  @protected
+  ApiKeystoneSignatureBatchResult
+  dco_decode_api_keystone_signature_batch_result(dynamic raw);
+
+  @protected
+  ApiKeystoneSignatureInput dco_decode_api_keystone_signature_input(
+    dynamic raw,
+  );
 
   @protected
   ApiMempoolTxEvent dco_decode_api_mempool_tx_event(dynamic raw);
@@ -144,6 +155,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SignedVoteCommitmentsView dco_decode_box_autoadd_signed_vote_commitments_view(
     dynamic raw,
   );
+
+  @protected
+  SoftwareAccountDerivationLease
+  dco_decode_box_autoadd_software_account_derivation_lease(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -228,6 +243,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  ImportBirthdayMetadata dco_decode_import_birthday_metadata(dynamic raw);
+
+  @protected
   IronwoodMigrationResult dco_decode_ironwood_migration_result(dynamic raw);
 
   @protected
@@ -271,6 +289,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AccountInfo> dco_decode_list_account_info(dynamic raw);
+
+  @protected
+  List<ApiKeystoneSignatureInput> dco_decode_list_api_keystone_signature_input(
+    dynamic raw,
+  );
 
   @protected
   List<AuthenticatedRound> dco_decode_list_authenticated_round(dynamic raw);
@@ -327,6 +350,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_list_keystone_signed_migration_message(dynamic raw);
 
   @protected
+  List<KeystoneSigningRequest> dco_decode_list_keystone_signing_request(
+    dynamic raw,
+  );
+
+  @protected
   List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
 
   @protected
@@ -360,6 +388,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MigrationStatusEntry> dco_decode_list_migration_status_entry(
     dynamic raw,
   );
+
+  @protected
+  List<NetworkHttpHeader> dco_decode_list_network_http_header(dynamic raw);
 
   @protected
   List<NextStepView> dco_decode_list_next_step_view(dynamic raw);
@@ -441,9 +472,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<VoteShareWire> dco_decode_list_vote_share_wire(dynamic raw);
 
   @protected
-  List<WireEncryptedShare> dco_decode_list_wire_encrypted_share(dynamic raw);
-
-  @protected
   List<ZcashBatchMessageInput> dco_decode_list_zcash_batch_message_input(
     dynamic raw,
   );
@@ -504,6 +532,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MigrationStatusEntry dco_decode_migration_status_entry(dynamic raw);
 
   @protected
+  NetworkHttpHeader dco_decode_network_http_header(dynamic raw);
+
+  @protected
+  NetworkHttpResponse dco_decode_network_http_response(dynamic raw);
+
+  @protected
+  NetworkPrivacyStatus dco_decode_network_privacy_status(dynamic raw);
+
+  @protected
   NextStepView dco_decode_next_step_view(dynamic raw);
 
   @protected
@@ -549,6 +586,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_opt_box_autoadd_signed_vote_commitments_view(dynamic raw);
 
   @protected
+  SoftwareAccountDerivationLease?
+  dco_decode_opt_box_autoadd_software_account_derivation_lease(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -575,7 +616,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ParsedSignedVotingPczt dco_decode_parsed_signed_voting_pczt(dynamic raw);
+  PirLayout dco_decode_pir_layout(dynamic raw);
 
   @protected
   ProposalResult dco_decode_proposal_result(dynamic raw);
@@ -644,6 +685,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SoftwareAccountDerivationLease dco_decode_software_account_derivation_lease(
+    dynamic raw,
+  );
+
+  @protected
   SoftwareWalletDiscoveredAccount dco_decode_software_wallet_discovered_account(
     dynamic raw,
   );
@@ -684,6 +730,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TxDataRequest dco_decode_tx_data_request(dynamic raw);
+
+  @protected
+  int dco_decode_u_16(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -801,6 +850,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ApiKeystoneSignatureBatchResult
+  sse_decode_api_keystone_signature_batch_result(SseDeserializer deserializer);
+
+  @protected
+  ApiKeystoneSignatureInput sse_decode_api_keystone_signature_input(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ApiMempoolTxEvent sse_decode_api_mempool_tx_event(
     SseDeserializer deserializer,
   );
@@ -892,6 +950,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SignedVoteCommitmentsView sse_decode_box_autoadd_signed_vote_commitments_view(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SoftwareAccountDerivationLease
+  sse_decode_box_autoadd_software_account_derivation_lease(
     SseDeserializer deserializer,
   );
 
@@ -1002,6 +1066,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  ImportBirthdayMetadata sse_decode_import_birthday_metadata(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   IronwoodMigrationResult sse_decode_ironwood_migration_result(
     SseDeserializer deserializer,
   );
@@ -1059,6 +1128,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AccountInfo> sse_decode_list_account_info(SseDeserializer deserializer);
+
+  @protected
+  List<ApiKeystoneSignatureInput> sse_decode_list_api_keystone_signature_input(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<AuthenticatedRound> sse_decode_list_authenticated_round(
@@ -1129,6 +1203,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<KeystoneSigningRequest> sse_decode_list_keystone_signing_request(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<Uint8List> sse_decode_list_list_prim_u_8_strict(
     SseDeserializer deserializer,
   );
@@ -1172,6 +1251,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<MigrationStatusEntry> sse_decode_list_migration_status_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<NetworkHttpHeader> sse_decode_list_network_http_header(
     SseDeserializer deserializer,
   );
 
@@ -1273,11 +1357,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<WireEncryptedShare> sse_decode_list_wire_encrypted_share(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   List<ZcashBatchMessageInput> sse_decode_list_zcash_batch_message_input(
     SseDeserializer deserializer,
   );
@@ -1352,6 +1431,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  NetworkHttpHeader sse_decode_network_http_header(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NetworkHttpResponse sse_decode_network_http_response(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  NetworkPrivacyStatus sse_decode_network_privacy_status(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   NextStepView sse_decode_next_step_view(SseDeserializer deserializer);
 
   @protected
@@ -1409,6 +1503,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SoftwareAccountDerivationLease?
+  sse_decode_opt_box_autoadd_software_account_derivation_lease(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -1439,9 +1539,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  ParsedSignedVotingPczt sse_decode_parsed_signed_voting_pczt(
-    SseDeserializer deserializer,
-  );
+  PirLayout sse_decode_pir_layout(SseDeserializer deserializer);
 
   @protected
   ProposalResult sse_decode_proposal_result(SseDeserializer deserializer);
@@ -1524,6 +1622,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SoftwareAccountDerivationLease sse_decode_software_account_derivation_lease(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SoftwareWalletDiscoveredAccount sse_decode_software_wallet_discovered_account(
     SseDeserializer deserializer,
   );
@@ -1570,6 +1673,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TxDataRequest sse_decode_tx_data_request(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -1720,6 +1826,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_api_keystone_signature_batch_result(
+    ApiKeystoneSignatureBatchResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_api_keystone_signature_input(
+    ApiKeystoneSignatureInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_api_mempool_tx_event(
     ApiMempoolTxEvent self,
     SseSerializer serializer,
@@ -1824,6 +1942,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_signed_vote_commitments_view(
     SignedVoteCommitmentsView self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_software_account_derivation_lease(
+    SoftwareAccountDerivationLease self,
     SseSerializer serializer,
   );
 
@@ -1957,6 +2081,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
+  void sse_encode_import_birthday_metadata(
+    ImportBirthdayMetadata self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_ironwood_migration_result(
     IronwoodMigrationResult self,
     SseSerializer serializer,
@@ -2028,6 +2158,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_account_info(
     List<AccountInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_api_keystone_signature_input(
+    List<ApiKeystoneSignatureInput> self,
     SseSerializer serializer,
   );
 
@@ -2116,6 +2252,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_keystone_signing_request(
+    List<KeystoneSigningRequest> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_list_prim_u_8_strict(
     List<Uint8List> self,
     SseSerializer serializer,
@@ -2166,6 +2308,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_migration_status_entry(
     List<MigrationStatusEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_network_http_header(
+    List<NetworkHttpHeader> self,
     SseSerializer serializer,
   );
 
@@ -2299,12 +2447,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_wire_encrypted_share(
-    List<WireEncryptedShare> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_zcash_batch_message_input(
     List<ZcashBatchMessageInput> self,
     SseSerializer serializer,
@@ -2395,6 +2537,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_network_http_header(
+    NetworkHttpHeader self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_network_http_response(
+    NetworkHttpResponse self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_network_privacy_status(
+    NetworkPrivacyStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_next_step_view(NextStepView self, SseSerializer serializer);
 
   @protected
@@ -2455,6 +2615,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_software_account_derivation_lease(
+    SoftwareAccountDerivationLease? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
@@ -2491,10 +2657,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_parsed_signed_voting_pczt(
-    ParsedSignedVotingPczt self,
-    SseSerializer serializer,
-  );
+  void sse_encode_pir_layout(PirLayout self, SseSerializer serializer);
 
   @protected
   void sse_encode_proposal_result(
@@ -2596,6 +2759,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_software_account_derivation_lease(
+    SoftwareAccountDerivationLease self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_software_wallet_discovered_account(
     SoftwareWalletDiscoveredAccount self,
     SseSerializer serializer,
@@ -2657,6 +2826,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_tx_data_request(TxDataRequest self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);

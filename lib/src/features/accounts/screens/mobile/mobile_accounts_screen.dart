@@ -98,9 +98,9 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
   }
 
   /// Anchored dark popup at the row's ⋯ button — Figma `Accounts` row
-  /// menu: secret passphrase (software only) / copy address / send ZEC / edit,
-  /// with removal separated below a divider when the eligibility rule allows
-  /// it.
+  /// menu: secret passphrase (software only) / viewing key / copy address /
+  /// send ZEC / edit, with removal separated below a divider when the
+  /// eligibility rule allows it.
   void _showRowMenu(AccountInfo account, BuildContext anchorContext) {
     if (_rowMenuEntry != null) {
       final wasOpenForAccount = _openRowMenuAccountUuid == account.uuid;
@@ -137,7 +137,10 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
       (false, true) => 173.0,
       (false, false) => 126.0,
     };
-    final menuHeight = baseMenuHeight + (account.isHardware ? 0 : 34);
+    // The viewing-key row is always shown (unlike the secret-passphrase
+    // row, a UFVK never grants spend authority, so hardware accounts get
+    // it too); each extra row costs the same fixed 34 (26 item + 8 gap).
+    final menuHeight = baseMenuHeight + 34 + (account.isHardware ? 0 : 34);
     const bottomNavClearance = kMobileTabBarHeight + AppSpacing.lg;
     final colors = context.colors;
     final appTheme = AppTheme.of(context);
@@ -163,6 +166,8 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
         switch (action) {
           case _AccountAction.viewSecretPassphrase:
             context.push('/settings/seed-phrase', extra: account.uuid);
+          case _AccountAction.viewViewingKey:
+            context.push('/settings/viewing-key', extra: account.uuid);
           case _AccountAction.copy:
             unawaited(_copyAddress(account));
           case _AccountAction.send:
@@ -234,6 +239,12 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
           label: 'View secret phrase',
           action: _AccountAction.viewSecretPassphrase,
         ),
+      item(
+        key: const ValueKey('mobile_account_menu_viewing_key'),
+        iconName: AppIcons.eye,
+        label: 'View viewing key',
+        action: _AccountAction.viewViewingKey,
+      ),
       item(
         key: const ValueKey('mobile_account_menu_copy'),
         iconName: AppIcons.copy,
@@ -417,6 +428,32 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
     }
   }
 
+  Future<void> _showGroupEditSheet(AccountFamily family) async {
+    final name = await showAccountGroupEditSheet(
+      context,
+      initialName: family.name,
+    );
+    if (name == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(accountProvider.notifier)
+          .renameAccountGroup(family.anchorAccountUuid, name);
+    } catch (e, st) {
+      log('MobileAccounts: group rename failed: $e\n$st');
+      if (mounted) {
+        showAppToast(
+          context,
+          "Couldn't update the group",
+          iconName: AppIcons.cross,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _showRemoveSheet(AccountInfo account) async {
     final accounts = ref.read(accountProvider).value?.accounts ?? const [];
     final isLastAccount = accounts.length == 1;
@@ -499,11 +536,14 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
     final colors = context.colors;
     final state = ref.watch(accountProvider).value;
     final accounts = state?.accounts ?? const <AccountInfo>[];
-    final active = state?.activeAccount;
-    final others = [
-      for (final account in accounts)
-        if (account.uuid != active?.uuid) account,
-    ];
+    final activeAccount = resolveActiveAccountForDisplay(
+      accounts,
+      state?.activeAccountUuid,
+    );
+    final accountFamilies = groupAccountsBySeedFamily(
+      accounts,
+      activeAccount?.uuid,
+    );
 
     return Scaffold(
       backgroundColor: colors.background.window,
@@ -526,19 +566,29 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
                     kMobileTabBarHeight + AppSpacing.lg,
                   ),
                   children: [
-                    if (active != null)
+                    for (
+                      var index = 0;
+                      index < accountFamilies.length;
+                      index++
+                    ) ...[
+                      if (index > 0) const SizedBox(height: AppSpacing.sm),
                       _AccountsGroupCard(
-                        title: 'Current',
-                        titleGap: AppSpacing.s,
-                        children: [_accountRow(active, enabled: !_busy)],
-                      ),
-                    if (others.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      _AccountsGroupCard(
-                        title: 'Other',
-                        titleGap: AppSpacing.xs,
+                        key: ValueKey(
+                          'mobile_accounts_family_'
+                          '${accountFamilies[index].anchorAccountUuid}',
+                        ),
+                        anchorAccountUuid:
+                            accountFamilies[index].anchorAccountUuid,
+                        title: accountFamilies[index].name,
+                        isCurrent: accountFamilies[index].containsActiveAccount,
+                        onEdit: _busy
+                            ? null
+                            : () => _showGroupEditSheet(accountFamilies[index]),
+                        titleGap: accountFamilies[index].containsActiveAccount
+                            ? AppSpacing.s
+                            : AppSpacing.xs,
                         children: [
-                          for (final account in others)
+                          for (final account in accountFamilies[index].accounts)
                             _accountRow(account, enabled: !_busy),
                         ],
                       ),
@@ -633,16 +683,30 @@ class _MobileAccountsScreenState extends ConsumerState<MobileAccountsScreen> {
   }
 }
 
-enum _AccountAction { viewSecretPassphrase, copy, send, edit, remove }
+enum _AccountAction {
+  viewSecretPassphrase,
+  viewViewingKey,
+  copy,
+  send,
+  edit,
+  remove,
+}
 
 class _AccountsGroupCard extends StatelessWidget {
   const _AccountsGroupCard({
+    required this.anchorAccountUuid,
     required this.title,
+    required this.isCurrent,
+    required this.onEdit,
     required this.titleGap,
     required this.children,
+    super.key,
   });
 
+  final String anchorAccountUuid;
   final String title;
+  final bool isCurrent;
+  final VoidCallback? onEdit;
   final double titleGap;
   final List<Widget> children;
 
@@ -659,11 +723,55 @@ class _AccountsGroupCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.xxs),
-            child: Text(
-              title,
-              style: AppTypography.labelLarge.copyWith(
-                color: context.colors.text.secondary,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: context.colors.text.secondary,
+                    ),
+                  ),
+                ),
+                if (isCurrent) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Current',
+                    style: AppTypography.labelMedium.copyWith(
+                      color: context.colors.text.secondary,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: AppSpacing.xxs),
+                Semantics(
+                  button: true,
+                  enabled: onEdit != null,
+                  label: 'Edit group name for $title',
+                  onTap: onEdit,
+                  child: ExcludeSemantics(
+                    child: GestureDetector(
+                      key: ValueKey(
+                        'mobile_accounts_edit_group_$anchorAccountUuid',
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onEdit,
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: AppIcon(
+                            AppIcons.edit,
+                            size: AppIconSize.medium,
+                            color: context.colors.icon.muted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(height: titleGap),
